@@ -38,7 +38,7 @@ class SchoolDb(ctx:Context):SQLiteOpenHelper(ctx,"schoolsphere.db",null,2){
  }
  fun addStudent(v:List<String>){val c=ContentValues().apply{put("name",v[0]);put("admission",v[1]);put("grade",v[2]);put("section",v[3]);put("guardian",v[4]);put("phone",v[5]);put("gender",v[6]);put("dob",v[7])};writableDatabase.insertOrThrow("students",null,c)}
  fun students():List<Student>{val a=mutableListOf<Student>();readableDatabase.rawQuery("SELECT * FROM students ORDER BY grade,section,name",null).use{c->while(c.moveToNext())a.add(Student(c.getLong(0),c.getString(1),c.getString(2),c.getString(3),c.getString(4)?: "",c.getString(5)?: "",c.getString(6)?: "",c.getString(7)?: "",c.getString(8)?: ""))};return a}
- fun classes():List<SchoolClass>{val a=mutableListOf<SchoolClass>();readableDatabase.rawQuery("SELECT DISTINCT grade,COALESCE(section,'') FROM students ORDER BY grade,section",null).use{c->while(c.moveToNext())a.add(SchoolClass(c.getString(0),c.getString(1)))};return a}
+ fun classes():List<SchoolClass>{val a=mutableListOf<SchoolClass>();for(n in 1..12){val grade="Class $n";val sections=mutableListOf<String>();readableDatabase.rawQuery("SELECT DISTINCT COALESCE(section,'') FROM students WHERE grade=? ORDER BY section",arrayOf(grade)).use{c->while(c.moveToNext())sections.add(c.getString(0))};if(sections.isEmpty())sections.add("");sections.forEach{section->a.add(SchoolClass(grade,section))}};return a}
  fun studentId(admission:String)=students().firstOrNull{it.admission.equals(admission,true)}?.id
  fun addAttendance(id:Long,date:String,status:String){val v=ContentValues().apply{put("student_id",id);put("date",date);put("status",status)};writableDatabase.insertWithOnConflict("attendance",null,v,SQLiteDatabase.CONFLICT_REPLACE)}
  fun attendance(date:String):Map<Long,String>{val a=mutableMapOf<Long,String>();readableDatabase.rawQuery("SELECT student_id,status FROM attendance WHERE date=?",arrayOf(date)).use{c->while(c.moveToNext())a[c.getLong(0)]=c.getString(1)};return a}
@@ -73,7 +73,7 @@ class MainActivity:ComponentActivity(){override fun onCreate(savedInstanceState:
  val classMarks=remember(refresh,selectedGrade,selectedSection){db.attendanceForClass(selectedGrade,selectedSection,today)}
  val classAcademic=remember(refresh,selectedGrade,selectedSection){db.academicsForClass(selectedGrade,selectedSection)}
  MaterialTheme{
-  Scaffold(topBar={TopAppBar(title={Column{Text("Divya Jyoti School",style=MaterialTheme.typography.titleLarge);Text("Smart School Management • Principal Portal",style=MaterialTheme.typography.labelSmall)}})},
+  Scaffold(topBar={TopAppBar(navigationIcon={Surface(color=MaterialTheme.colorScheme.primary,shape=androidx.compose.foundation.shape.RoundedCornerShape(12.dp),modifier=Modifier.padding(start=12.dp).size(42.dp)){Box(contentAlignment=androidx.compose.ui.Alignment.Center){Text("DJ",color=MaterialTheme.colorScheme.onPrimary,style=MaterialTheme.typography.titleMedium)}}},title={Column{Text("Divya Jyoti School",style=MaterialTheme.typography.titleLarge);Text("ENGLISH MEDIUM  •  CLASSES 1–12",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.primary)}})},
    bottomBar={NavigationBar{Page.values().filter{it!=Page.ClassDetail}.forEach{p->NavigationBarItem(selected=page==p,onClick={page=p},icon={Text(when(p){Page.Home->"⌂";Page.Classes->"▦";Page.ClassDetail->"▣";Page.Students->"♙";Page.Attendance->"✓";Page.Academics->"▤";Page.Portfolio->"★"})},label={Text(p.label)})}}},
    floatingActionButton={if(page==Page.Students||page==Page.Academics||page==Page.Portfolio)FloatingActionButton(onClick={dialog=when(page){Page.Students->"student";Page.Academics->"academic";Page.Portfolio->"portfolio";else->""}}){Text("+")}}){pad->
    Column(Modifier.padding(pad).fillMaxSize().padding(16.dp)){
@@ -82,8 +82,14 @@ class MainActivity:ComponentActivity(){override fun onCreate(savedInstanceState:
       Text("Principal Dashboard",style=MaterialTheme.typography.headlineSmall)
       Text("Divya Jyoti School • Your school at a glance",color=MaterialTheme.colorScheme.onSurfaceVariant)
       Spacer(Modifier.height(12.dp))
-      Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){Stat("Total students",db.count("students").toString(),Modifier.weight(1f));Stat("Classes",classes.size.toString(),Modifier.weight(1f))}
+      Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){Stat("Total students",db.count("students").toString(),Modifier.weight(1f));Stat("Classes","12",Modifier.weight(1f))}
       Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){Stat("Present today",marks.values.count{it=="Present"}.toString(),Modifier.weight(1f));Stat("Absent today",marks.values.count{it=="Absent"}.toString(),Modifier.weight(1f))}
+      val boysTotal=students.count{it.gender.equals("Male",true)}
+      val girlsTotal=students.count{it.gender.equals("Female",true)}
+      val markedToday=marks.values.count{it=="Present"||it=="Absent"||it=="Leave"}
+      val attendancePct=if(students.isEmpty())0 else marks.values.count{it=="Present"}*100/students.size
+      Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){Stat("Boys",boysTotal.toString(),Modifier.weight(1f));Stat("Girls",girlsTotal.toString(),Modifier.weight(1f));Stat("Not marked",(students.size-markedToday).coerceAtLeast(0).toString(),Modifier.weight(1f))}
+      Card(Modifier.fillMaxWidth()){Column(Modifier.padding(14.dp)){Row(horizontalArrangement=Arrangement.SpaceBetween,modifier=Modifier.fillMaxWidth()){Text("School attendance today",style=MaterialTheme.typography.titleSmall);Text("$attendancePct%",style=MaterialTheme.typography.titleMedium,color=MaterialTheme.colorScheme.primary)};LinearProgressIndicator(progress={attendancePct/100f},modifier=Modifier.fillMaxWidth().padding(top=8.dp));Text("$markedToday of ${students.size} students have an attendance status recorded",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}}
       Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){Stat("Exam records",db.count("academics").toString(),Modifier.weight(1f));Stat("Portfolio",db.count("portfolio").toString(),Modifier.weight(1f))}
       Spacer(Modifier.height(16.dp))
       Button(onClick={page=Page.Classes},Modifier.fillMaxWidth()){Text("Explore class-wise dashboards")}
@@ -92,9 +98,9 @@ class MainActivity:ComponentActivity(){override fun onCreate(savedInstanceState:
      }
      Page.Classes->{
       Text("Class-wise Overview",style=MaterialTheme.typography.headlineSmall)
-      Text("Select a class to view its students, attendance, teacher and exam records.",color=MaterialTheme.colorScheme.onSurfaceVariant)
+      Text("All 12 classes are ready. Select any class to view its students, attendance, teacher and exam records.",color=MaterialTheme.colorScheme.onSurfaceVariant)
       Spacer(Modifier.height(12.dp))
-      if(classes.isEmpty())Hint("No classes yet. Add students and assign their class to create class dashboards.")
+      
       LazyColumn(verticalArrangement=Arrangement.spacedBy(8.dp)){items(classes){cl->
        val roster=students.filter{it.grade==cl.grade&&it.section==cl.section}
        val classPresent=db.attendanceForClass(cl.grade,cl.section,today).values.count{it=="Present"}
@@ -168,7 +174,7 @@ class MainActivity:ComponentActivity(){override fun onCreate(savedInstanceState:
    }
   }
   when(dialog){
-   "student"->FormDialog(title="Add student",labels=listOf("Full name","Admission / roll no.","Class (e.g. Class 1)","Section","Parent / guardian","Parent phone","Gender (Male / Female / Other)","Date of birth (DD-MM-YYYY)"),save={v->if(v[0].isNotBlank()&&v[1].isNotBlank()&&v[2].isNotBlank())runCatching{db.addStudent(v);refresh++};dialog=""},cancel={dialog=""})
+   "student"->FormDialog(title="Add student",labels=listOf("Full name","Admission / roll no.","Class (Class 1 to Class 12)","Section","Parent / guardian","Parent phone","Gender (Male / Female / Other)","Date of birth (DD-MM-YYYY)"),save={v->if(v[0].isNotBlank()&&v[1].isNotBlank()&&v[2].isNotBlank())runCatching{db.addStudent(v);refresh++};dialog=""},cancel={dialog=""})
    "teacher"->FormDialog(title="Class teacher",labels=listOf("Class: $selectedGrade","Section: $selectedSection","Class teacher full name"),initial=listOf(selectedGrade,selectedSection,db.teacher(selectedGrade,selectedSection)),save={v->if(v[2].isNotBlank()){db.saveTeacher(selectedGrade,selectedSection,v[2].trim());refresh++};dialog=""},cancel={dialog=""})
    "academic"->FormDialog(title="Add academic result",labels=listOf("Student admission number","Subject","Exam / term","Marks obtained","Maximum marks"),save={v->val sid=db.studentId(v[0]);if(sid!=null&&v.drop(1).all{value->value.isNotBlank()}){db.addAcademic(sid,v);refresh++};dialog=""},cancel={dialog=""})
    "portfolio"->FormDialog(title="Add portfolio entry",labels=listOf("Student admission number","Category","Achievement title","Description","Date (YYYY-MM-DD)"),save={v->val sid=db.studentId(v[0]);if(sid!=null&&v[1].isNotBlank()&&v[2].isNotBlank()){db.addPortfolio(sid,v,today);refresh++};dialog=""},cancel={dialog=""})
