@@ -99,7 +99,7 @@ class MainActivity:ComponentActivity(){override fun onCreate(savedInstanceState:
        val roster=students.filter{it.grade==cl.grade&&it.section==cl.section}
        val classPresent=db.attendanceForClass(cl.grade,cl.section,today).values.count{it=="Present"}
        val classAbsent=db.attendanceForClass(cl.grade,cl.section,today).values.count{it=="Absent"}
-       Card(Modifier.fillMaxWidth(),onClick={selectedGrade=cl.grade;selectedSection=cl.section;page=Page.ClassDetail}){
+       Card(onClick={selectedGrade=cl.grade;selectedSection=cl.section;page=Page.ClassDetail},modifier=Modifier.fillMaxWidth()){
         Column(Modifier.padding(16.dp)){
          Text(cl.grade+(if(cl.section.isNotBlank())" • Section "+cl.section else ""),style=MaterialTheme.typography.titleLarge)
          Spacer(Modifier.height(6.dp))
