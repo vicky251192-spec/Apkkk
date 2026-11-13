@@ -36,7 +36,7 @@ class SchoolDb(ctx:Context):SQLiteOpenHelper(ctx,"schoolsphere.db",null,2){
  override fun onUpgrade(db:SQLiteDatabase,oldVersion:Int,newVersion:Int){
   if(oldVersion<2){db.execSQL("ALTER TABLE students ADD COLUMN gender TEXT DEFAULT ''");db.execSQL("ALTER TABLE students ADD COLUMN dob TEXT DEFAULT ''");db.execSQL("CREATE TABLE IF NOT EXISTS class_teachers(grade TEXT NOT NULL,section TEXT NOT NULL,teacher TEXT NOT NULL,PRIMARY KEY(grade,section))")}
  }
- fun addStudent(v:List<String>){val c=ContentValues().apply{put("name",v[0]);put("admission",v[1]);put("grade",v[2]);put("section",v[3]);put("guardian",v[4]);put("phone",v[5]);put("gender",v[6]);put("dob",v[7])};writableDatabase.insertOrThrow("students",null,c)}
+ fun addStudent(v:List<String>){val c=ContentValues().apply{put("name",v[0]);put("admission",v[1]);put("grade",v[2]);put("section",v[3]);put("guardian",v[4]);put("phone",v[5]);put("gender",v[6]);put("dob",v[7])};writableDatabase.insertOrThrow("students",null,c)}\n fun updateStudent(id:Long,v:List<String>){val c=ContentValues().apply{put("name",v[0]);put("admission",v[1]);put("grade",v[2]);put("section",v[3]);put("guardian",v[4]);put("phone",v[5]);put("gender",v[6]);put("dob",v[7])};writableDatabase.update("students",c,"id=?",arrayOf(id.toString()))}\n fun deleteStudent(id:Long){val d=writableDatabase;d.beginTransaction();try{d.delete("attendance","student_id=?",arrayOf(id.toString()));d.delete("academics","student_id=?",arrayOf(id.toString()));d.delete("portfolio","student_id=?",arrayOf(id.toString()));d.delete("students","id=?",arrayOf(id.toString()));d.setTransactionSuccessful()}finally{d.endTransaction()}}
  fun students():List<Student>{val a=mutableListOf<Student>();readableDatabase.rawQuery("SELECT * FROM students ORDER BY grade,section,name",null).use{c->while(c.moveToNext())a.add(Student(c.getLong(0),c.getString(1),c.getString(2),c.getString(3),c.getString(4)?: "",c.getString(5)?: "",c.getString(6)?: "",c.getString(7)?: "",c.getString(8)?: ""))};return a}
  fun classes():List<SchoolClass>{val a=mutableListOf<SchoolClass>();for(n in 1..12){val grade="Class $n";val sections=mutableListOf<String>();readableDatabase.rawQuery("SELECT DISTINCT COALESCE(section,'') FROM students WHERE grade=? ORDER BY section",arrayOf(grade)).use{c->while(c.moveToNext())sections.add(c.getString(0))};if(sections.isEmpty())sections.add("");sections.forEach{section->a.add(SchoolClass(grade,section))}};return a}
  fun studentId(admission:String)=students().firstOrNull{it.admission.equals(admission,true)}?.id
@@ -62,7 +62,7 @@ class MainActivity:ComponentActivity(){override fun onCreate(savedInstanceState:
  var dialog by remember{mutableStateOf("")}
  var search by remember{mutableStateOf("")}
  var selectedGrade by remember{mutableStateOf("")}
- var selectedSection by remember{mutableStateOf("")}
+ var selectedSection by remember{mutableStateOf("")}\n var editingStudent by remember{mutableStateOf<Student?>(null)}\n var deletingStudent by remember{mutableStateOf<Student?>(null)}
  val students=remember(refresh){db.students()}
  val classes=remember(refresh){db.classes()}
  val today=remember{SimpleDateFormat("yyyy-MM-dd",Locale.US).format(Date())}
@@ -153,7 +153,7 @@ class MainActivity:ComponentActivity(){override fun onCreate(savedInstanceState:
       OutlinedTextField(search,{search=it},Modifier.fillMaxWidth(),label={Text("Search student / class / admission no.")},singleLine=true)
       val filtered=students.filter{(it.name+" "+it.admission+" "+it.grade+" "+it.section).contains(search,true)}
       Text(filtered.size.toString()+" students")
-      LazyColumn{items(filtered){s->Card(Modifier.fillMaxWidth().padding(vertical=4.dp)){Column(Modifier.padding(12.dp)){Text(s.name,style=MaterialTheme.typography.titleMedium);Text("Admission: "+s.admission+" • "+s.grade+" "+s.section);Text("Gender: "+s.gender+" • DOB: "+s.dob);Text("Guardian: "+s.guardian);if(s.phone.isNotBlank())Text("Phone: "+s.phone)}}}}
+      LazyColumn{items(filtered){s->Card(Modifier.fillMaxWidth().padding(vertical=4.dp)){Column(Modifier.padding(12.dp)){Text(s.name,style=MaterialTheme.typography.titleMedium);Text("Admission: "+s.admission+" • "+s.grade+" "+s.section);Text("Gender: "+s.gender+" • DOB: "+s.dob);Text("Guardian: "+s.guardian);if(s.phone.isNotBlank())Text("Phone: "+s.phone);Row(horizontalArrangement=Arrangement.End,modifier=Modifier.fillMaxWidth()){TextButton(onClick={editingStudent=s;dialog="editStudent"}){Text("Edit")};TextButton(onClick={deletingStudent=s}){Text("Delete",color=MaterialTheme.colorScheme.error)}}}}}}
      }
      Page.Attendance->{
       Text("Attendance Register",style=MaterialTheme.typography.headlineSmall);Text("Date: "+today)
@@ -173,9 +173,9 @@ class MainActivity:ComponentActivity(){override fun onCreate(savedInstanceState:
     }
    }
   }
-  when(dialog){
+  deletingStudent?.let{s->AlertDialog(onDismissRequest={deletingStudent=null},title={Text("Delete student?")},text={Text("This will permanently delete ${s.name} and their attendance, exam and portfolio records from this device.")},confirmButton={TextButton(onClick={db.deleteStudent(s.id);refresh++;deletingStudent=null}){Text("Delete",color=MaterialTheme.colorScheme.error)}},dismissButton={TextButton(onClick={deletingStudent=null}){Text("Cancel")}})}\n  when(dialog){
    "student"->FormDialog(title="Add student",labels=listOf("Full name","Admission / roll no.","Class (Class 1 to Class 12)","Section","Parent / guardian","Parent phone","Gender (Male / Female / Other)","Date of birth (DD-MM-YYYY)"),save={v->if(v[0].isNotBlank()&&v[1].isNotBlank()&&v[2].isNotBlank())runCatching{db.addStudent(v);refresh++};dialog=""},cancel={dialog=""})
-   "teacher"->FormDialog(title="Class teacher",labels=listOf("Class: $selectedGrade","Section: $selectedSection","Class teacher full name"),initial=listOf(selectedGrade,selectedSection,db.teacher(selectedGrade,selectedSection)),save={v->if(v[2].isNotBlank()){db.saveTeacher(selectedGrade,selectedSection,v[2].trim());refresh++};dialog=""},cancel={dialog=""})
+   "editStudent"->{val s=editingStudent;if(s!=null)FormDialog(title="Edit student • ${s.name}",labels=listOf("Full name","Admission / roll no.","Class (Class 1 to Class 12)","Section","Parent / guardian","Parent phone","Gender (Male / Female / Other)","Date of birth (DD-MM-YYYY)"),initial=listOf(s.name,s.admission,s.grade,s.section,s.guardian,s.phone,s.gender,s.dob),save={v->if(v[0].isNotBlank()&&v[1].isNotBlank()&&v[2].isNotBlank())runCatching{db.updateStudent(s.id,v);refresh++};dialog="";editingStudent=null},cancel={dialog="";editingStudent=null})}\n   "teacher"->FormDialog(title="Class teacher",labels=listOf("Class: $selectedGrade","Section: $selectedSection","Class teacher full name"),initial=listOf(selectedGrade,selectedSection,db.teacher(selectedGrade,selectedSection)),save={v->if(v[2].isNotBlank()){db.saveTeacher(selectedGrade,selectedSection,v[2].trim());refresh++};dialog=""},cancel={dialog=""})
    "academic"->FormDialog(title="Add academic result",labels=listOf("Student admission number","Subject","Exam / term","Marks obtained","Maximum marks"),save={v->val sid=db.studentId(v[0]);if(sid!=null&&v.drop(1).all{value->value.isNotBlank()}){db.addAcademic(sid,v);refresh++};dialog=""},cancel={dialog=""})
    "portfolio"->FormDialog(title="Add portfolio entry",labels=listOf("Student admission number","Category","Achievement title","Description","Date (YYYY-MM-DD)"),save={v->val sid=db.studentId(v[0]);if(sid!=null&&v[1].isNotBlank()&&v[2].isNotBlank()){db.addPortfolio(sid,v,today);refresh++};dialog=""},cancel={dialog=""})
   }
