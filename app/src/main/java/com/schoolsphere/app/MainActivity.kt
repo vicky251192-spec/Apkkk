@@ -23,7 +23,7 @@ import java.util.Locale
 data class Student(val id:Long,val name:String,val admission:String,val grade:String,val section:String,val guardian:String,val phone:String,val gender:String,val dob:String)
 data class Record(val student:String,val field1:String,val field2:String,val field3:String,val field4:String="")
 data class SchoolClass(val grade:String,val section:String)
-enum class Page(val label:String){Home("Home"),Classes("Classes"),Students("Students"),Attendance("Attendance"),Academics("Academics"),Portfolio("Portfolio")}
+enum class Page(val label:String){Home("Home"),Classes("Classes"),ClassDetail("Class Detail"),Students("Students"),Attendance("Attendance"),Academics("Academics"),Portfolio("Portfolio")}
 
 class SchoolDb(ctx:Context):SQLiteOpenHelper(ctx,"schoolsphere.db",null,2){
  override fun onCreate(db:SQLiteDatabase){
@@ -73,7 +73,7 @@ class MainActivity:ComponentActivity(){override fun onCreate(savedInstanceState:
  val classMarks=remember(refresh,selectedGrade,selectedSection){db.attendanceForClass(selectedGrade,selectedSection,today)}
  val classAcademic=remember(refresh,selectedGrade,selectedSection){db.academicsForClass(selectedGrade,selectedSection)}
  MaterialTheme{
-  Scaffold(topBar={TopAppBar(title={Text("SchoolSphere",style=MaterialTheme.typography.titleLarge)},subtitle={Text("Student & School Management")})},
+  Scaffold(topBar={TopAppBar(title={Column{Text("SchoolSphere",style=MaterialTheme.typography.titleLarge);Text("Student & School Management",style=MaterialTheme.typography.labelSmall)}})},
    bottomBar={NavigationBar{Page.values().forEach{p->NavigationBarItem(selected=page==p,onClick={page=p},icon={Text(when(p){Page.Home->"⌂";Page.Classes->"▦";Page.Students->"♙";Page.Attendance->"✓";Page.Academics->"▤";Page.Portfolio->"★"})},label={Text(p.label)})}}},
    floatingActionButton={if(page==Page.Students||page==Page.Academics||page==Page.Portfolio)FloatingActionButton(onClick={dialog=when(page){Page.Students->"student";Page.Academics->"academic";Page.Portfolio->"portfolio";else->""}}){Text("+")}}){pad->
    Column(Modifier.padding(pad).fillMaxSize().padding(16.dp)){
