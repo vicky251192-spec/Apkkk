@@ -73,25 +73,25 @@ class MainActivity:ComponentActivity(){override fun onCreate(savedInstanceState:
  val classMarks=remember(refresh,selectedGrade,selectedSection){db.attendanceForClass(selectedGrade,selectedSection,today)}
  val classAcademic=remember(refresh,selectedGrade,selectedSection){db.academicsForClass(selectedGrade,selectedSection)}
  MaterialTheme{
-  Scaffold(topBar={TopAppBar(title={Column{Text("SchoolSphere",style=MaterialTheme.typography.titleLarge);Text("Student & School Management",style=MaterialTheme.typography.labelSmall)}})},
+  Scaffold(topBar={TopAppBar(title={Column{Text("Divya Jyoti School",style=MaterialTheme.typography.titleLarge);Text("Smart School Management • Principal Portal",style=MaterialTheme.typography.labelSmall)}})},
    bottomBar={NavigationBar{Page.values().filter{it!=Page.ClassDetail}.forEach{p->NavigationBarItem(selected=page==p,onClick={page=p},icon={Text(when(p){Page.Home->"⌂";Page.Classes->"▦";Page.ClassDetail->"▣";Page.Students->"♙";Page.Attendance->"✓";Page.Academics->"▤";Page.Portfolio->"★"})},label={Text(p.label)})}}},
    floatingActionButton={if(page==Page.Students||page==Page.Academics||page==Page.Portfolio)FloatingActionButton(onClick={dialog=when(page){Page.Students->"student";Page.Academics->"academic";Page.Portfolio->"portfolio";else->""}}){Text("+")}}){pad->
    Column(Modifier.padding(pad).fillMaxSize().padding(16.dp)){
     when(page){
      Page.Home->{
-      Text("School Dashboard",style=MaterialTheme.typography.headlineSmall)
-      Text("A quick overview of your school",color=MaterialTheme.colorScheme.onSurfaceVariant)
+      Text("Principal Dashboard",style=MaterialTheme.typography.headlineSmall)
+      Text("Divya Jyoti School • Your school at a glance",color=MaterialTheme.colorScheme.onSurfaceVariant)
       Spacer(Modifier.height(12.dp))
       Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){Stat("Total students",db.count("students").toString(),Modifier.weight(1f));Stat("Classes",classes.size.toString(),Modifier.weight(1f))}
       Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){Stat("Present today",marks.values.count{it=="Present"}.toString(),Modifier.weight(1f));Stat("Absent today",marks.values.count{it=="Absent"}.toString(),Modifier.weight(1f))}
       Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){Stat("Exam records",db.count("academics").toString(),Modifier.weight(1f));Stat("Portfolio",db.count("portfolio").toString(),Modifier.weight(1f))}
       Spacer(Modifier.height(16.dp))
-      Button(onClick={page=Page.Classes},Modifier.fillMaxWidth()){Text("Open class-wise dashboard")}
-      OutlinedButton(onClick={page=Page.Attendance},Modifier.fillMaxWidth()){Text("Take today's attendance")}
-      OutlinedButton(onClick={page=Page.Students},Modifier.fillMaxWidth()){Text("View all students")}
+      Button(onClick={page=Page.Classes},Modifier.fillMaxWidth()){Text("Explore class-wise dashboards")}
+      OutlinedButton(onClick={page=Page.Attendance},Modifier.fillMaxWidth()){Text("Manage daily attendance")}
+      OutlinedButton(onClick={page=Page.Students},Modifier.fillMaxWidth()){Text("Open student directory")}
      }
      Page.Classes->{
-      Text("Class-wise Dashboard",style=MaterialTheme.typography.headlineSmall)
+      Text("Class-wise Overview",style=MaterialTheme.typography.headlineSmall)
       Text("Select a class to view its students, attendance, teacher and exam records.",color=MaterialTheme.colorScheme.onSurfaceVariant)
       Spacer(Modifier.height(12.dp))
       if(classes.isEmpty())Hint("No classes yet. Add students and assign their class to create class dashboards.")
@@ -143,24 +143,24 @@ class MainActivity:ComponentActivity(){override fun onCreate(savedInstanceState:
       Text("Tip: Use Academics to add subject-wise marks and they will appear here.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
      }
      Page.Students->{
-      Text("Student profiles",style=MaterialTheme.typography.headlineSmall)
+      Text("Student Directory",style=MaterialTheme.typography.headlineSmall)
       OutlinedTextField(search,{search=it},Modifier.fillMaxWidth(),label={Text("Search student / class / admission no.")},singleLine=true)
       val filtered=students.filter{(it.name+" "+it.admission+" "+it.grade+" "+it.section).contains(search,true)}
       Text(filtered.size.toString()+" students")
       LazyColumn{items(filtered){s->Card(Modifier.fillMaxWidth().padding(vertical=4.dp)){Column(Modifier.padding(12.dp)){Text(s.name,style=MaterialTheme.typography.titleMedium);Text("Admission: "+s.admission+" • "+s.grade+" "+s.section);Text("Gender: "+s.gender+" • DOB: "+s.dob);Text("Guardian: "+s.guardian);if(s.phone.isNotBlank())Text("Phone: "+s.phone)}}}}
      }
      Page.Attendance->{
-      Text("Daily attendance",style=MaterialTheme.typography.headlineSmall);Text("Date: "+today)
+      Text("Attendance Register",style=MaterialTheme.typography.headlineSmall);Text("Date: "+today)
       if(students.isEmpty())Hint("Add students before taking attendance.")
       LazyColumn{items(students){s->Card(Modifier.fillMaxWidth().padding(vertical=4.dp)){Column(Modifier.padding(10.dp)){Text(s.name+" • "+s.grade+" "+s.section,style=MaterialTheme.typography.titleSmall);Text("Status: "+(marks[s.id]?: "Not marked"));Row(horizontalArrangement=Arrangement.spacedBy(4.dp)){listOf("Present","Absent","Leave").forEach{status->OutlinedButton(onClick={db.addAttendance(s.id,today,status);refresh++},contentPadding=PaddingValues(horizontal=8.dp,vertical=2.dp)){Text(status)}}}}}}}
      }
      Page.Academics->{
-      Text("Academic records",style=MaterialTheme.typography.headlineSmall)
+      Text("Exams & Academic Performance",style=MaterialTheme.typography.headlineSmall)
       if(academic.isEmpty())Hint("Tap + to add subject-wise marks.")
       LazyColumn{items(academic){r->Card(Modifier.fillMaxWidth().padding(vertical=4.dp)){Column(Modifier.padding(12.dp)){Text(r.student,style=MaterialTheme.typography.titleMedium);Text(r.field1+" • "+r.field2);Text("Marks: "+r.field3+" / "+r.field4)}}}}
      }
      Page.Portfolio->{
-      Text("Activities & achievements",style=MaterialTheme.typography.headlineSmall)
+      Text("Student Activities & Achievements",style=MaterialTheme.typography.headlineSmall)
       if(portfolio.isEmpty())Hint("Tap + to add sports, arts, leadership or other achievements.")
       LazyColumn{items(portfolio){r->Card(Modifier.fillMaxWidth().padding(vertical=4.dp)){Column(Modifier.padding(12.dp)){Text(r.field2,style=MaterialTheme.typography.titleMedium);Text(r.student+" • "+r.field1+" • "+r.field4);if(r.field3.isNotBlank())Text(r.field3)}}}}
      }
