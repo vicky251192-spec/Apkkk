@@ -74,7 +74,7 @@ class MainActivity:ComponentActivity(){override fun onCreate(savedInstanceState:
  val classAcademic=remember(refresh,selectedGrade,selectedSection){db.academicsForClass(selectedGrade,selectedSection)}
  MaterialTheme{
   Scaffold(topBar={TopAppBar(title={Column{Text("SchoolSphere",style=MaterialTheme.typography.titleLarge);Text("Student & School Management",style=MaterialTheme.typography.labelSmall)}})},
-   bottomBar={NavigationBar{Page.values().forEach{p->NavigationBarItem(selected=page==p,onClick={page=p},icon={Text(when(p){Page.Home->"⌂";Page.Classes->"▦";Page.Students->"♙";Page.Attendance->"✓";Page.Academics->"▤";Page.Portfolio->"★"})},label={Text(p.label)})}}},
+   bottomBar={NavigationBar{Page.values().filter{it!=Page.ClassDetail}.forEach{p->NavigationBarItem(selected=page==p,onClick={page=p},icon={Text(when(p){Page.Home->"⌂";Page.Classes->"▦";Page.ClassDetail->"▣";Page.Students->"♙";Page.Attendance->"✓";Page.Academics->"▤";Page.Portfolio->"★"})},label={Text(p.label)})}}},
    floatingActionButton={if(page==Page.Students||page==Page.Academics||page==Page.Portfolio)FloatingActionButton(onClick={dialog=when(page){Page.Students->"student";Page.Academics->"academic";Page.Portfolio->"portfolio";else->""}}){Text("+")}}){pad->
    Column(Modifier.padding(pad).fillMaxSize().padding(16.dp)){
     when(page){
