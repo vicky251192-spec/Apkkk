@@ -1,0 +1,10 @@
+{
+  "name": "SchoolSphere School Management",
+  "short_name": "SchoolSphere",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f3f6fb",
+  "theme_color": "#123b70",
+  "description": "Student management and digital portfolio",
+  "icons": []
+}
