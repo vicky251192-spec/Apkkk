@@ -23,18 +23,21 @@ import java.util.Locale
 data class Student(val id:Long,val name:String,val admission:String,val grade:String,val section:String,val guardian:String,val phone:String,val gender:String,val dob:String)
 data class Record(val student:String,val field1:String,val field2:String,val field3:String,val field4:String="")
 data class SchoolClass(val grade:String,val section:String)
-enum class Page(val label:String){Home("Home"),Classes("Classes"),ClassDetail("Class Detail"),Students("Students"),Attendance("Attendance"),Academics("Academics"),Portfolio("Portfolio")}
+data class FeeRecord(val id:Long,val student:String,val admission:String,val grade:String,val feeType:String,val amount:Double,val paid:Double,val dueDate:String)
+enum class Page(val label:String){Home("Home"),Classes("Classes"),ClassDetail("Class Detail"),Students("Students"),Attendance("Attendance"),Academics("Academics"),Portfolio("Portfolio"),Fees("Fees")}
 
-class SchoolDb(ctx:Context):SQLiteOpenHelper(ctx,"schoolsphere.db",null,2){
+class SchoolDb(ctx:Context):SQLiteOpenHelper(ctx,"schoolsphere.db",null,3){
  override fun onCreate(db:SQLiteDatabase){
   db.execSQL("CREATE TABLE students(id INTEGER PRIMARY KEY AUTOINCREMENT,name TEXT NOT NULL,admission TEXT UNIQUE NOT NULL,grade TEXT NOT NULL,section TEXT,guardian TEXT,phone TEXT,gender TEXT DEFAULT '',dob TEXT DEFAULT '')")
   db.execSQL("CREATE TABLE attendance(id INTEGER PRIMARY KEY AUTOINCREMENT,student_id INTEGER,date TEXT,status TEXT,UNIQUE(student_id,date))")
   db.execSQL("CREATE TABLE academics(id INTEGER PRIMARY KEY AUTOINCREMENT,student_id INTEGER,subject TEXT,exam TEXT,marks TEXT,max_marks TEXT)")
   db.execSQL("CREATE TABLE portfolio(id INTEGER PRIMARY KEY AUTOINCREMENT,student_id INTEGER,category TEXT,title TEXT,details TEXT,date TEXT)")
   db.execSQL("CREATE TABLE class_teachers(grade TEXT NOT NULL,section TEXT NOT NULL,teacher TEXT NOT NULL,PRIMARY KEY(grade,section))")
+  db.execSQL("CREATE TABLE fees(id INTEGER PRIMARY KEY AUTOINCREMENT,student_id INTEGER NOT NULL,fee_type TEXT NOT NULL,amount REAL NOT NULL,paid REAL NOT NULL DEFAULT 0,due_date TEXT)")
  }
  override fun onUpgrade(db:SQLiteDatabase,oldVersion:Int,newVersion:Int){
   if(oldVersion<2){db.execSQL("ALTER TABLE students ADD COLUMN gender TEXT DEFAULT ''");db.execSQL("ALTER TABLE students ADD COLUMN dob TEXT DEFAULT ''");db.execSQL("CREATE TABLE IF NOT EXISTS class_teachers(grade TEXT NOT NULL,section TEXT NOT NULL,teacher TEXT NOT NULL,PRIMARY KEY(grade,section))")}
+  if(oldVersion<3){db.execSQL("CREATE TABLE IF NOT EXISTS fees(id INTEGER PRIMARY KEY AUTOINCREMENT,student_id INTEGER NOT NULL,fee_type TEXT NOT NULL,amount REAL NOT NULL,paid REAL NOT NULL DEFAULT 0,due_date TEXT)")}
  }
  fun addStudent(v:List<String>){val c=ContentValues().apply{put("name",v[0]);put("admission",v[1]);put("grade",v[2]);put("section",v[3]);put("guardian",v[4]);put("phone",v[5]);put("gender",v[6]);put("dob",v[7])};writableDatabase.insertOrThrow("students",null,c)}\n fun updateStudent(id:Long,v:List<String>){val c=ContentValues().apply{put("name",v[0]);put("admission",v[1]);put("grade",v[2]);put("section",v[3]);put("guardian",v[4]);put("phone",v[5]);put("gender",v[6]);put("dob",v[7])};writableDatabase.update("students",c,"id=?",arrayOf(id.toString()))}\n fun deleteStudent(id:Long){val d=writableDatabase;d.beginTransaction();try{d.delete("attendance","student_id=?",arrayOf(id.toString()));d.delete("academics","student_id=?",arrayOf(id.toString()));d.delete("portfolio","student_id=?",arrayOf(id.toString()));d.delete("students","id=?",arrayOf(id.toString()));d.setTransactionSuccessful()}finally{d.endTransaction()}}
  fun students():List<Student>{val a=mutableListOf<Student>();readableDatabase.rawQuery("SELECT * FROM students ORDER BY grade,section,name",null).use{c->while(c.moveToNext())a.add(Student(c.getLong(0),c.getString(1),c.getString(2),c.getString(3),c.getString(4)?: "",c.getString(5)?: "",c.getString(6)?: "",c.getString(7)?: "",c.getString(8)?: ""))};return a}
@@ -50,7 +53,10 @@ class SchoolDb(ctx:Context):SQLiteOpenHelper(ctx,"schoolsphere.db",null,2){
  fun academicsForClass(grade:String,section:String):List<Record>{val a=mutableListOf<Record>();readableDatabase.rawQuery("SELECT s.name,a.subject,a.exam,a.marks,a.max_marks FROM academics a JOIN students s ON s.id=a.student_id WHERE s.grade=? AND COALESCE(s.section,'')=? ORDER BY a.exam,s.name,a.subject",arrayOf(grade,section)).use{c->while(c.moveToNext())a.add(Record(c.getString(0),c.getString(1),c.getString(2),c.getString(3),c.getString(4)))};return a}
  fun addPortfolio(id:Long,v:List<String>,today:String){val c=ContentValues().apply{put("student_id",id);put("category",v[1]);put("title",v[2]);put("details",v[3]);put("date",v[4].ifBlank{today})};writableDatabase.insert("portfolio",null,c)}
  fun portfolio():List<Record>{val a=mutableListOf<Record>();readableDatabase.rawQuery("SELECT s.name,p.category,p.title,p.details,p.date FROM portfolio p JOIN students s ON s.id=p.student_id ORDER BY p.id DESC",null).use{c->while(c.moveToNext())a.add(Record(c.getString(0),c.getString(1),c.getString(2),c.getString(3)?: "",c.getString(4)))};return a}
- fun count(table:String):Int{readableDatabase.rawQuery("SELECT COUNT(*) FROM "+table,null).use{if(it.moveToFirst())return it.getInt(0)};return 0}
+ fun addFee(studentId:Long,type:String,amount:Double,due:String){val v=ContentValues().apply{put("student_id",studentId);put("fee_type",type);put("amount",amount);put("due_date",due)};writableDatabase.insertOrThrow("fees",null,v)}
+ fun payFee(id:Long){writableDatabase.execSQL("UPDATE fees SET paid=amount WHERE id=?",arrayOf(id))}
+ fun fees():List<FeeRecord>{val a=mutableListOf<FeeRecord>();readableDatabase.rawQuery("SELECT f.id,s.name,s.admission,s.grade,f.fee_type,f.amount,f.paid,COALESCE(f.due_date,'') FROM fees f JOIN students s ON s.id=f.student_id ORDER BY f.id DESC",null).use{c->while(c.moveToNext())a.add(FeeRecord(c.getLong(0),c.getString(1),c.getString(2),c.getString(3),c.getString(4),c.getDouble(5),c.getDouble(6),c.getString(7)))};return a}
+ fun count(table:String){readableDatabase.rawQuery("SELECT COUNT(*) FROM "+table,null).use{if(it.moveToFirst())return it.getInt(0)};return 0}
 }
 
 class MainActivity:ComponentActivity(){override fun onCreate(savedInstanceState:Bundle?){super.onCreate(savedInstanceState);setContent{SchoolSphereApp(SchoolDb(this))}}}
@@ -69,13 +75,14 @@ class MainActivity:ComponentActivity(){override fun onCreate(savedInstanceState:
  val marks=remember(refresh){db.attendance(today)}
  val academic=remember(refresh){db.academics()}
  val portfolio=remember(refresh){db.portfolio()}
+ val feeRecords=remember(refresh){db.fees()}
  val classStudents=students.filter{it.grade==selectedGrade&&it.section==selectedSection}
  val classMarks=remember(refresh,selectedGrade,selectedSection){db.attendanceForClass(selectedGrade,selectedSection,today)}
  val classAcademic=remember(refresh,selectedGrade,selectedSection){db.academicsForClass(selectedGrade,selectedSection)}
  MaterialTheme{
   Scaffold(topBar={TopAppBar(navigationIcon={Surface(color=MaterialTheme.colorScheme.primary,shape=androidx.compose.foundation.shape.RoundedCornerShape(12.dp),modifier=Modifier.padding(start=12.dp).size(42.dp)){Box(contentAlignment=androidx.compose.ui.Alignment.Center){Text("DJ",color=MaterialTheme.colorScheme.onPrimary,style=MaterialTheme.typography.titleMedium)}}},title={Column{Text("Divya Jyoti School",style=MaterialTheme.typography.titleLarge);Text("ENGLISH MEDIUM  •  CLASSES 1–12",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.primary)}})},
-   bottomBar={NavigationBar{Page.values().filter{it!=Page.ClassDetail}.forEach{p->NavigationBarItem(selected=page==p,onClick={page=p},icon={Text(when(p){Page.Home->"⌂";Page.Classes->"▦";Page.ClassDetail->"▣";Page.Students->"♙";Page.Attendance->"✓";Page.Academics->"▤";Page.Portfolio->"★"})},label={Text(p.label)})}}},
-   floatingActionButton={if(page==Page.Students||page==Page.Academics||page==Page.Portfolio)FloatingActionButton(onClick={dialog=when(page){Page.Students->"student";Page.Academics->"academic";Page.Portfolio->"portfolio";else->""}}){Text("+")}}){pad->
+   bottomBar={NavigationBar{Page.values().filter{it!=Page.ClassDetail}.forEach{p->NavigationBarItem(selected=page==p,onClick={page=p},icon={Text(when(p){Page.Home->"⌂";Page.Classes->"▦";Page.ClassDetail->"▣";Page.Students->"♙";Page.Attendance->"✓";Page.Academics->"▤";Page.Portfolio->"★";Page.Fees->"₹"})},label={Text(p.label)})}}},
+   floatingActionButton={if(page==Page.Students||page==Page.Academics||page==Page.Portfolio||page==Page.Fees)FloatingActionButton(onClick={dialog=when(page){Page.Students->"student";Page.Academics->"academic";Page.Portfolio->"portfolio";Page.Fees->"fee";else->""}}){Text("+")}}){pad->
    Column(Modifier.padding(pad).fillMaxSize().padding(16.dp)){
     when(page){
      Page.Home->{
@@ -90,7 +97,7 @@ class MainActivity:ComponentActivity(){override fun onCreate(savedInstanceState:
       val attendancePct=if(students.isEmpty())0 else marks.values.count{it=="Present"}*100/students.size
       Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){Stat("Boys",boysTotal.toString(),Modifier.weight(1f));Stat("Girls",girlsTotal.toString(),Modifier.weight(1f));Stat("Not marked",(students.size-markedToday).coerceAtLeast(0).toString(),Modifier.weight(1f))}
       Card(Modifier.fillMaxWidth()){Column(Modifier.padding(14.dp)){Row(horizontalArrangement=Arrangement.SpaceBetween,modifier=Modifier.fillMaxWidth()){Text("School attendance today",style=MaterialTheme.typography.titleSmall);Text("$attendancePct%",style=MaterialTheme.typography.titleMedium,color=MaterialTheme.colorScheme.primary)};LinearProgressIndicator(progress={attendancePct/100f},modifier=Modifier.fillMaxWidth().padding(top=8.dp));Text("$markedToday of ${students.size} students have an attendance status recorded",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}}
-      Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){Stat("Exam records",db.count("academics").toString(),Modifier.weight(1f));Stat("Portfolio",db.count("portfolio").toString(),Modifier.weight(1f))}
+      Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){Stat("Exam records",db.count("academics").toString(),Modifier.weight(1f));Stat("Portfolio",db.count("portfolio").toString(),Modifier.weight(1f));Stat("Fee entries",feeRecords.size.toString(),Modifier.weight(1f))}
       Spacer(Modifier.height(16.dp))
       Button(onClick={page=Page.Classes},Modifier.fillMaxWidth()){Text("Explore class-wise dashboards")}
       OutlinedButton(onClick={page=Page.Attendance},Modifier.fillMaxWidth()){Text("Manage daily attendance")}
@@ -178,6 +185,7 @@ class MainActivity:ComponentActivity(){override fun onCreate(savedInstanceState:
    "editStudent"->{val s=editingStudent;if(s!=null)FormDialog(title="Edit student • ${s.name}",labels=listOf("Full name","Admission / roll no.","Class (Class 1 to Class 12)","Section","Parent / guardian","Parent phone","Gender (Male / Female / Other)","Date of birth (DD-MM-YYYY)"),initial=listOf(s.name,s.admission,s.grade,s.section,s.guardian,s.phone,s.gender,s.dob),save={v->if(v[0].isNotBlank()&&v[1].isNotBlank()&&v[2].isNotBlank())runCatching{db.updateStudent(s.id,v);refresh++};dialog="";editingStudent=null},cancel={dialog="";editingStudent=null})}\n   "teacher"->FormDialog(title="Class teacher",labels=listOf("Class: $selectedGrade","Section: $selectedSection","Class teacher full name"),initial=listOf(selectedGrade,selectedSection,db.teacher(selectedGrade,selectedSection)),save={v->if(v[2].isNotBlank()){db.saveTeacher(selectedGrade,selectedSection,v[2].trim());refresh++};dialog=""},cancel={dialog=""})
    "academic"->FormDialog(title="Add academic result",labels=listOf("Student admission number","Subject","Exam / term","Marks obtained","Maximum marks"),save={v->val sid=db.studentId(v[0]);if(sid!=null&&v.drop(1).all{value->value.isNotBlank()}){db.addAcademic(sid,v);refresh++};dialog=""},cancel={dialog=""})
    "portfolio"->FormDialog(title="Add portfolio entry",labels=listOf("Student admission number","Category","Achievement title","Description","Date (YYYY-MM-DD)"),save={v->val sid=db.studentId(v[0]);if(sid!=null&&v[1].isNotBlank()&&v[2].isNotBlank()){db.addPortfolio(sid,v,today);refresh++};dialog=""},cancel={dialog=""})
+   "fee"->FormDialog(title="Add student fee",labels=listOf("Student admission number","Fee type (e.g. Tuition)","Amount (INR)","Due date (DD-MM-YYYY)"),save={v->val sid=db.studentId(v[0]);val amount=v[2].toDoubleOrNull();if(sid!=null&&v[1].isNotBlank()&&amount!=null&&amount>0){db.addFee(sid,v[1],amount,v[3]);refresh++};dialog=""},cancel={dialog=""})
   }
  }
 }
