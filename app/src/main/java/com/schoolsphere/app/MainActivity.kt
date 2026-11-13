@@ -177,6 +177,15 @@ class MainActivity:ComponentActivity(){override fun onCreate(savedInstanceState:
       if(portfolio.isEmpty())Hint("Tap + to add sports, arts, leadership or other achievements.")
       LazyColumn{items(portfolio){r->Card(Modifier.fillMaxWidth().padding(vertical=4.dp)){Column(Modifier.padding(12.dp)){Text(r.field2,style=MaterialTheme.typography.titleMedium);Text(r.student+" • "+r.field1+" • "+r.field4);if(r.field3.isNotBlank())Text(r.field3)}}}}
      }
+     Page.Fees->{
+      Text("Fee Management",style=MaterialTheme.typography.headlineSmall)
+      val total=feeRecords.sumOf{it.amount}
+      val collected=feeRecords.sumOf{it.paid}
+      val due=(total-collected).coerceAtLeast(0.0)
+      Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){Stat("Billed","₹"+ "%.0f".format(total),Modifier.weight(1f));Stat("Collected","₹"+ "%.0f".format(collected),Modifier.weight(1f));Stat("Outstanding","₹"+ "%.0f".format(due),Modifier.weight(1f))}
+      if(feeRecords.isEmpty())Hint("Tap + to add a fee record using the student's admission number.")
+      LazyColumn{items(feeRecords){fee->Card(Modifier.fillMaxWidth().padding(vertical=4.dp)){Column(Modifier.padding(12.dp)){Text(fee.student,style=MaterialTheme.typography.titleMedium);Text(fee.grade+" • "+fee.admission+" • "+fee.feeType);Text("Amount: ₹"+ "%.2f".format(fee.amount)+"  •  Paid: ₹"+ "%.2f".format(fee.paid));Text("Balance: ₹"+ "%.2f".format((fee.amount-fee.paid).coerceAtLeast(0.0))+"  •  Due: "+fee.dueDate.ifBlank{"Not set"});if(fee.paid<fee.amount)TextButton(onClick={db.payFee(fee.id);refresh++}){Text("Mark fully paid")}else Text("Paid in full",color=MaterialTheme.colorScheme.primary)}}}}
+     }
     }
    }
   }
