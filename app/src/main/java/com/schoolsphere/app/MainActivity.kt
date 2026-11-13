@@ -58,7 +58,7 @@ class SchoolDb(ctx:Context):SQLiteOpenHelper(ctx,"schoolsphere.db",null,3){
  fun addFee(studentId:Long,type:String,amount:Double,due:String){val v=ContentValues().apply{put("student_id",studentId);put("fee_type",type);put("amount",amount);put("due_date",due)};writableDatabase.insertOrThrow("fees",null,v)}
  fun payFee(id:Long){writableDatabase.execSQL("UPDATE fees SET paid=amount WHERE id=?",arrayOf(id))}
  fun fees():List<FeeRecord>{val a=mutableListOf<FeeRecord>();readableDatabase.rawQuery("SELECT f.id,s.name,s.admission,s.grade,f.fee_type,f.amount,f.paid,COALESCE(f.due_date,'') FROM fees f JOIN students s ON s.id=f.student_id ORDER BY f.id DESC",null).use{c->while(c.moveToNext())a.add(FeeRecord(c.getLong(0),c.getString(1),c.getString(2),c.getString(3),c.getString(4),c.getDouble(5),c.getDouble(6),c.getString(7)))};return a}
- fun count(table:String){readableDatabase.rawQuery("SELECT COUNT(*) FROM "+table,null).use{if(it.moveToFirst())return it.getInt(0)};return 0}
+ fun count(table:String):Int{readableDatabase.rawQuery("SELECT COUNT(*) FROM "+table,null).use{if(it.moveToFirst())return it.getInt(0)};return 0}
 }
 
 class MainActivity:ComponentActivity(){override fun onCreate(savedInstanceState:Bundle?){super.onCreate(savedInstanceState);setContent{SchoolSphereApp(SchoolDb(this))}}}
