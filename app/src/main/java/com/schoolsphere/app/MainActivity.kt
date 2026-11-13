@@ -64,9 +64,9 @@ class MainActivity:ComponentActivity(){override fun onCreate(savedInstanceState:
    }
   }
   when(dialog){
-   "student"->FormDialog("Add student",listOf("Full name","Admission / roll no.","Class (e.g. Class 7)","Section","Parent / guardian","Parent phone")){v->if(v[0].isNotBlank()&&v[1].isNotBlank()&&v[2].isNotBlank())runCatching{db.addStudent(v);refresh++};dialog=""}{dialog=""}
-   "academic"->FormDialog("Add academic result",listOf("Student admission number","Subject","Exam / term","Marks obtained","Maximum marks")){v->val id=db.studentId(v[0]);if(id!=null&&v.drop(1).all{it.isNotBlank()}){db.addAcademic(id,v);refresh++};dialog=""}{dialog=""}
-   "portfolio"->FormDialog("Add portfolio entry",listOf("Student admission number","Category","Achievement title","Description","Date (YYYY-MM-DD)")){v->val id=db.studentId(v[0]);if(id!=null&&v[1].isNotBlank()&&v[2].isNotBlank()){db.addPortfolio(id,v,today);refresh++};dialog=""}{dialog=""}
+   "student"->FormDialog(title="Add student",labels=listOf("Full name","Admission / roll no.","Class (e.g. Class 7)","Section","Parent / guardian","Parent phone"),save={v->if(v[0].isNotBlank()&&v[1].isNotBlank()&&v[2].isNotBlank())runCatching{db.addStudent(v);refresh++};dialog=""},cancel={dialog=""})
+   "academic"->FormDialog(title="Add academic result",labels=listOf("Student admission number","Subject","Exam / term","Marks obtained","Maximum marks"),save={v->val sid=db.studentId(v[0]);if(sid!=null&&v.drop(1).all{value->value.isNotBlank()}){db.addAcademic(sid,v);refresh++};dialog=""},cancel={dialog=""})
+   "portfolio"->FormDialog(title="Add portfolio entry",labels=listOf("Student admission number","Category","Achievement title","Description","Date (YYYY-MM-DD)"),save={v->val sid=db.studentId(v[0]);if(sid!=null&&v[1].isNotBlank()&&v[2].isNotBlank()){db.addPortfolio(sid,v,today);refresh++};dialog=""},cancel={dialog=""})
   }
  }
 }
